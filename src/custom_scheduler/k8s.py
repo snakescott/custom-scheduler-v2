@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from kubernetes.client import CoreV1Api, V1Node, V1Pod
 from kubernetes.client.rest import ApiException
@@ -32,7 +31,7 @@ def get_state(api: CoreV1Api, namespace: str) -> NodePodState:
             nodes=nodes,
             pods=pods,
             namespace=namespace,
-            ts=datetime.now(timezone.utc)
+            ts=datetime.now(UTC)
         )
     except ApiException as e:
         # Re-raise with more context

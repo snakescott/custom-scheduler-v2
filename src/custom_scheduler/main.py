@@ -1,9 +1,11 @@
 import os
-import time
 import sys
+import time
+
 from kubernetes import client, config
 
 from .k8s import execute_scheduling_loop
+
 
 def main():
     """

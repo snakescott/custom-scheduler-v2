@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -26,7 +26,7 @@ def mock_pod() -> V1Pod:
 @pytest.fixture
 def fixed_time() -> datetime:
     """Return a fixed datetime for testing."""
-    return datetime(2024, 3, 14, 15, 30, 45, 123456, tzinfo=timezone.utc)
+    return datetime(2024, 3, 14, 15, 30, 45, 123456, tzinfo=UTC)
 
 
 @pytest.mark.unit
