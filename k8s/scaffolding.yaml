@@ -1,0 +1,46 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 1000000
+globalDefault: false
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 10
+globalDefault: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: custom-scheduler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: custom-scheduler-role
+rules:
+# Note: these grants have not been rigorously vetted. This is only appropriate to run on a test cluster!
+- apiGroups: [""] # Core API group
+  resources: ["pods/binding"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "update"] # 'update' might be needed if scheduler modifies pod (e.g. annotations)
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: custom-scheduler-binding
+subjects:
+- kind: ServiceAccount
+  name: custom-scheduler
+roleRef:
+  kind: Role
+  name: custom-scheduler-role
+  apiGroup: rbac.authorization.k8s.io
