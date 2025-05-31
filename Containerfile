@@ -19,4 +19,4 @@ RUN pip install --no-cache-dir .
 COPY src/ src/
 
 # Set the entrypoint
-ENTRYPOINT ["python", "-m", "custom_scheduler.main"] 
+ENTRYPOINT ["python", "-m", "src.custom_scheduler.main"]

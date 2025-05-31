@@ -23,7 +23,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SCHEDULER_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
+            # Harcode this since it will likely end up hardcooded
+            # when used in downstream `schedulerName` references
+            value: custom-scheduler
       serviceAccountName: custom-scheduler
