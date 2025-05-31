@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from kubernetes.client import CoreV1Api, V1Node, V1Pod
 from kubernetes.client.rest import ApiException
 
-from .lib import NodePodState
+from .core import NodePodState
 
 
 def get_state(api: CoreV1Api, namespace: str) -> NodePodState:

@@ -84,7 +84,10 @@ podman run custom-scheduler
 
 ## Project Structure
 
-- `src/main.py`: Main application code
+- `src/custom_scheduler/`:
+  - `core.py`: Core scheduling logic and data structures
+  - `api_components.py`: Kubernetes API integration
+  - `driver.py`: Main program entry point and loop driver
 - `tests/`: Test files
 - `pyproject.toml`: Project configuration and dependencies
 - `Containerfile`: Container definition

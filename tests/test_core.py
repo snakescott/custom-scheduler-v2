@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from kubernetes.client import V1Node, V1Pod
 
-from custom_scheduler.lib import NodePodState
+from custom_scheduler.core import NodePodState
 
 
 @pytest.fixture
