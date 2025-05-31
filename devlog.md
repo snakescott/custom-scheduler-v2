@@ -1,7 +1,7 @@
 This is a limited, toy kubernetes scheduler. It is basically a rebuild of https://github.com/snakescott/takehome-k8s with substantially more intention behind its design and implementation. This document is a development log.
 
 20250531 15:15-16:00 Pacific
-Cleanup, docs, and filing issues. 
+Cleanup, docs, and filing issues.
 
 For now functionality is split up into three areas:
 1) Core has no remote dependencies and should contain as much algorithmic complexity as possible
@@ -32,4 +32,3 @@ Namespace: default
 Nodes: 1
 Pods: 4
 ```
-

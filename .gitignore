@@ -45,4 +45,4 @@ coverage.xml
 # Container
 *.tar
 *.tar.gz
-*.tgz 
+*.tgz

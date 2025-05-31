@@ -14,12 +14,12 @@ def main():
     """
     scheduler_name = os.environ.get("SCHEDULER_NAME", "unknown")
     namespace = os.environ.get("POD_NAMESPACE", "unknown")
-    
+
     config.load_incluster_config()
     api = client.CoreV1Api()
 
     try:
-        # We need some way to drive the scheduling loop. One approach is 
+        # We need some way to drive the scheduling loop. One approach is
         # to drive it from a watch, e.g. w.stream(v1.list_namespaced_pod, namespace),
         # but this schedules a single pod at a time, and for gang scheduling,
         # we need to schedule multiple pods at once.
@@ -37,4 +37,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

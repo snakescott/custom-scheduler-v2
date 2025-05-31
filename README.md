@@ -34,7 +34,13 @@ cd /path/to/custom-scheduler
 uv pip install -e ".[dev]"
 ```
 
-3. Run tests:
+3. Install pre-commit hooks:
+```bash
+# Install the git hooks (using uv run since pre-commit is in the virtual env)
+uv run pre-commit install
+```
+
+4. Run tests:
 ```bash
 # Run all tests
 uv run pytest
@@ -106,4 +112,4 @@ The project uses several development tools configured in `pyproject.toml`:
   - Auto-fix enabled for many common issues
   - 120 character line length
   - Double quotes for strings
-  - Spaces for indentation 
+  - Spaces for indentation
