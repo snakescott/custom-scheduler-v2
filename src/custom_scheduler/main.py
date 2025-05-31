@@ -1,8 +1,9 @@
 import os
 import time
 import sys
-from datetime import datetime, timezone
+from kubernetes import client, config
 
+from .k8s import execute_scheduling_loop
 
 def main():
     """
@@ -12,14 +13,12 @@ def main():
     scheduler_name = os.environ.get("SCHEDULER_NAME", "unknown")
     namespace = os.environ.get("POD_NAMESPACE", "unknown")
     
+    config.load_incluster_config()
+    api = client.CoreV1Api()
+
     try:
         while True:
-            current_time = datetime.now(timezone.utc)
-            print(
-                f"Running at {current_time.isoformat()} "
-                f"[scheduler={scheduler_name}, namespace={namespace}]",
-                flush=True
-            )
+            execute_scheduling_loop(scheduler_name, namespace, api)
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nShutting down...", flush=True)

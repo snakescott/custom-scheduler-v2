@@ -41,3 +41,24 @@ def get_state(api: CoreV1Api, namespace: str) -> NodePodState:
             reason=f"Failed to get state for namespace {namespace}: {e.reason}",
             http_resp=e.http_resp
         ) from e 
+
+def execute_scheduling_loop(
+    scheduler_name: str,
+    namespace: str,
+    api: CoreV1Api,
+) -> None:
+    """
+    Execute one iteration of the scheduling loop, printing the current state.
+    
+    Args:
+        scheduler_name: Name of the scheduler
+        namespace: Kubernetes namespace to monitor
+        api: Kubernetes CoreV1Api instance
+    """
+    state = get_state(api, namespace)
+    print(
+        f"Running at {state.ts.isoformat()} "
+        f"[scheduler={scheduler_name}, namespace={namespace}]\n"
+        f"{state.summary()}",
+        flush=True
+    ) 
