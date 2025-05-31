@@ -21,18 +21,34 @@ A simple Python project that demonstrates containerization and Kubernetes integr
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Install dependencies (choose one method):
+2. Install dependencies:
 ```bash
-# Method 1: Install in editable mode with test dependencies
-uv pip install -e ".[test]"
+# Install main dependencies
+uv pip install -e .
 
-# Method 2: Install test requirements directly
-uv pip install -r requirements-test.txt
+# Install development dependencies (including pytest)
+uv pip install -e ".[dev]"
 ```
 
 3. Run tests:
 ```bash
+# Run all tests
 uv run pytest
+
+# Run only unit tests
+uv run pytest -m unit
+
+# Run only system tests
+uv run pytest -m system
+```
+
+4. Run linting and formatting:
+```bash
+# Run ruff linter
+uv run ruff check .
+
+# Run ruff formatter
+uv run ruff format .
 ```
 
 #### Using pip
@@ -47,13 +63,10 @@ source venv/bin/activate  # On Unix/macOS
 
 2. Install dependencies:
 ```bash
-pip install -e ".[test]"
+pip install -e ".[dev]"
 ```
 
-3. Run tests:
-```bash
-pytest
-```
+3. Run tests and linting (same commands as above, but without `uv run`)
 
 ### Building and Running the Container
 
@@ -72,6 +85,16 @@ podman run custom-scheduler
 - `src/main.py`: Main application code
 - `tests/`: Test files
 - `pyproject.toml`: Project configuration and dependencies
-- `requirements.txt`: Main dependencies for uv
-- `requirements-test.txt`: Test dependencies for uv
-- `Containerfile`: Container definition 
+- `Containerfile`: Container definition
+
+## Development Tools
+
+The project uses several development tools configured in `pyproject.toml`:
+
+- **pytest**: Testing framework with markers for unit and system tests
+- **ruff**: Fast Python linter and formatter
+  - Configured with common rules for code style and quality
+  - Auto-fix enabled for many common issues
+  - 120 character line length
+  - Double quotes for strings
+  - Spaces for indentation 

@@ -1,8 +1,11 @@
-import time
 from unittest.mock import patch
+
 import pytest
+
 from src.main import main
 
+
+@pytest.mark.unit
 def test_main_output(capsys):
     """
     Test that main prints the expected output and exits cleanly.
