@@ -1,6 +1,7 @@
 This is a limited, toy kubernetes scheduler. It is basically a rebuild of https://github.com/snakescott/takehome-k8s with substantially more intention behind its design and implementation. This document is a development log.
 
-20250531 15:15-16:00 Pacific
+**20250531 15:15-16:00 Pacific**
+
 Cleanup, docs, and filing issues.
 
 For now functionality is split up into three areas:
@@ -11,7 +12,8 @@ to methods in api_components.
 
 
 
-20250531 9:00-11:00 Pacific
+**20250531 9:00-11:00 Pacific**
+
 Did about an hour of dev during this two hour window. Largely focused on on initial structure/scaffolding. Cursor did a lot of the work here, but there was a variety of bugfix/tweaks on top, including
 
 * using python:3.12-slim instead of cursor suggested python:3.9-slim (picks up datetime.UTC)
