@@ -21,9 +21,13 @@ A simple Python project that demonstrates containerization and Kubernetes integr
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Install dependencies:
+2. Install dependencies (choose one method):
 ```bash
-uv sync
+# Method 1: Install in editable mode with test dependencies
+uv pip install -e ".[test]"
+
+# Method 2: Install test requirements directly
+uv pip install -r requirements-test.txt
 ```
 
 3. Run tests:
