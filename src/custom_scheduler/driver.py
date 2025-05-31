@@ -4,7 +4,7 @@ import time
 
 from kubernetes import client, config
 
-from .api_components import execute_scheduling_loop
+from custom_scheduler.api_components import execute_scheduling_loop
 
 
 def main():
