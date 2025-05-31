@@ -9,7 +9,11 @@ ENV PYTHONUNBUFFERED=1
 COPY pyproject.toml .
 COPY src/ src/
 
-# Install dependencies
+# Create and activate virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install dependencies in virtual environment
 RUN pip install --no-cache-dir .
 
 # Set the entrypoint
