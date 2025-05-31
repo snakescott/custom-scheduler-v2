@@ -21,12 +21,12 @@ A simple Python project that demonstrates containerization and Kubernetes integr
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Install dependencies:
+2. Install the package in development mode:
 ```bash
-# Install main dependencies
-uv pip install -e .
+# First, make sure you're in the project root directory
+cd /path/to/custom-scheduler
 
-# Install development dependencies (including pytest)
+# Install the package in development mode with all dependencies
 uv pip install -e ".[dev]"
 ```
 
@@ -61,8 +61,10 @@ source venv/bin/activate  # On Unix/macOS
 .\venv\Scripts\activate  # On Windows
 ```
 
-2. Install dependencies:
+2. Install the package in development mode:
 ```bash
+# Make sure you're in the project root directory
+cd /path/to/custom-scheduler
 pip install -e ".[dev]"
 ```
 

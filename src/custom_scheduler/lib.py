@@ -19,4 +19,18 @@ class NodePodState:
     nodes: List[V1Node]
     pods: List[V1Pod]
     namespace: str
-    ts: datetime 
+    ts: datetime
+
+    def summary(self) -> str:
+        """
+        Returns a summary of the current state including timestamp, node count, and pod count.
+        
+        Returns:
+            A formatted string containing the state summary
+        """
+        return (
+            f"State at {self.ts.isoformat()}\n"
+            f"Namespace: {self.namespace}\n"
+            f"Nodes: {len(self.nodes)}\n"
+            f"Pods: {len(self.pods)}"
+        ) 
