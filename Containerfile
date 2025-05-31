@@ -17,4 +17,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir .
 
 # Set the entrypoint
-ENTRYPOINT ["python", "-m", "src.main"] 
+ENTRYPOINT ["python", "-m", "custom_scheduler.main"] 
