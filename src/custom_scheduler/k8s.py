@@ -56,8 +56,7 @@ def execute_scheduling_loop(
     """
     state = get_state(api, namespace)
     print(
-        f"Running at {state.ts.isoformat()} "
-        f"[scheduler={scheduler_name}, namespace={namespace}]\n"
+        f"Scheduler {scheduler_name}, state:\n"
         f"{state.summary()}",
         flush=True
     ) 
