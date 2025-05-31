@@ -1,12 +1,16 @@
 # Custom Scheduler
 
-A simple Python project that demonstrates containerization and Kubernetes integration.
+A toy kubernetes scheduler. You may be interested in [devlog.md](devlog.md)
+
+## Functionality, installation, and usage
+TBD https://github.com/snakescott/custom-scheduler-v2/issues/8
 
 ## Development
+**WIP**, the below has a lot of AI-generated text that has not been carefully scrutinized (https://github.com/snakescott/custom-scheduler-v2/issues/7 covers reviewing).
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.12 or higher
 - Container runtime (e.g., Docker, Podman)
 - Either:
   - pip (for traditional Python package management)
