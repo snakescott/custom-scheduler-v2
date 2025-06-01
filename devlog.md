@@ -1,5 +1,11 @@
 This is a limited, toy kubernetes scheduler. It is basically a rebuild of https://github.com/snakescott/takehome-k8s with substantially more intention behind its design and implementation. This document is a development log.
 
+**20250601 9:30-10:00 Pacific**
+
+Short session, basically smoke testing basic [preemption](https://github.com/snakescott/custom-scheduler-v2/issues/13). Ran into interesting (retrospectively unsurprising) consistency issues with a 1s sleep between polling loops, so increased to 5s; some notes in [issues/1](https://github.com/snakescott/custom-scheduler-v2/issues/1).
+
+Gang scheduling, testing, and cleanup are major remaining areas. There's been about 4h total of dev here so far.
+
 **20250531 19:30-21:30 Pacific**
 
 About 90m of dev time during this block. Full impl and test of basic scheduling and impl but not yet minikube testing of preemption. Found a few interesting bugs that were likely in the takehome-k8s version as well:
