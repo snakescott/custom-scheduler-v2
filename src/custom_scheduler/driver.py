@@ -6,6 +6,10 @@ from kubernetes import client, config
 
 from custom_scheduler.api_components import execute_scheduling_loop
 
+# Originally 1s, but saw attempted reschedulings
+# https://github.com/snakescott/custom-scheduler-v2/issues/1
+SLEEP_TIME = 5.0
+
 
 def main():
     """
@@ -17,7 +21,7 @@ def main():
 
     config.load_incluster_config()
     api = client.CoreV1Api()
-    print("\n{scheduler_name} launching in {namespace}...")
+    print(f"\n{scheduler_name} launching in namespace {namespace}...")
     try:
         # We need some way to drive the scheduling loop. One approach is
         # to drive it from a watch, e.g. w.stream(v1.list_namespaced_pod, namespace),
@@ -28,9 +32,7 @@ def main():
         # https://github.com/snakescott/custom-scheduler-v2/issues/2
         while True:
             execute_scheduling_loop(scheduler_name, namespace, api)
-            # TODO(snakescott): consider appropriate sleep approach
-            # https://github.com/snakescott/custom-scheduler-v2/issues/1
-            time.sleep(1)
+            time.sleep(SLEEP_TIME)
     except KeyboardInterrupt:
         print(f"\n{scheduler_name} shutting down in {namespace}...")
         sys.exit(0)

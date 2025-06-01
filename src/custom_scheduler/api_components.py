@@ -74,9 +74,11 @@ def execute_scheduling_loop(
         api: Kubernetes CoreV1Api instance
     """
     state = get_state(api, namespace)
-    print(f"At {state.ts}, {scheduler_name} processing {len(state.pods)} pods and {len(state.nodes)} nodes")
     actions = schedule(scheduler_name, state)
-    print(f"Performing {len(actions.bindings)} bindings and {len(actions.evictions)} evictions")
+
+    if actions.bindings or actions.evictions:
+        print(f"At {state.ts}, {scheduler_name} processing {len(state.pods)} pods and {len(state.nodes)} nodes")
+        print(f"Performing {len(actions.bindings)} bindings and {len(actions.evictions)} evictions")
 
     for eviction in actions.evictions:
         print(f"Evicting pod {eviction.metadata.name}")
