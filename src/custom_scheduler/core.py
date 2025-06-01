@@ -159,6 +159,14 @@ def get_pods_to_preempt(
     return pods_to_preempt
 
 
+def is_pending(pod: V1Pod) -> bool:
+    return pod.status and pod.status.phase == "Pending"
+
+
+def is_running(pod: V1Pod) -> bool:
+    return pod.status and pod.status.phase == "Running" and pod.spec and pod.spec.node_name is not None
+
+
 def schedule(scheduler_name: str, state: NodePodState, preempt: bool = True) -> SchedulingActions:
     """
     Creates scheduling actions by matching pending pods to nodes with matching scheduler name.
@@ -178,25 +186,14 @@ def schedule(scheduler_name: str, state: NodePodState, preempt: bool = True) -> 
     Returns:
         SchedulingActions containing the bindings and evictions to be executed
     """
+    # Get pods managed by this scheduler
+    in_scope_pods = [pod for pod in state.pods if pod.spec and pod.spec.scheduler_name == scheduler_name]
+
     # Find pending pods that need scheduling
-    pending_pods = [
-        pod
-        for pod in state.pods
-        if pod.status and pod.status.phase == "Pending" and pod.spec.scheduler_name == scheduler_name
-    ]
+    pending_pods = [pod for pod in in_scope_pods if is_pending(pod)]
 
     # Find running pods for this scheduler
-    running_pods = [
-        pod
-        for pod in state.pods
-        if (
-            pod.status
-            and pod.status.phase == "Running"
-            and pod.spec
-            and pod.spec.node_name
-            and pod.spec.scheduler_name == scheduler_name
-        )
-    ]
+    running_pods = [pod for pod in in_scope_pods if is_running(pod)]
 
     # Find nodes that already have pods with this scheduler running
     nodes_with_scheduler_pods = {pod.spec.node_name for pod in running_pods}
@@ -218,7 +215,6 @@ def schedule(scheduler_name: str, state: NodePodState, preempt: bool = True) -> 
             available_nodes.append(next(n for n in state.nodes if n.metadata.name == pod.spec.node_name))
 
     # Sort nodes by name, and pending pods by priority and name
-    # TODO(snakescott): cleanup, try to avoid using get_pod_sort_key
     available_nodes.sort(key=lambda n: n.metadata.name)
     pending_pods.sort(key=lambda p: get_pod_sort_key(p))
 
