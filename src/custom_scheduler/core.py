@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 
 from kubernetes.client import (
     V1Binding,
@@ -11,6 +12,13 @@ from kubernetes.client import (
     V1Pod,
 )
 from sortedcontainers import SortedList
+
+
+class SortOrder(Enum):
+    """Enum for specifying sort order."""
+
+    ASCENDING = 1  # Lowest values first
+    DESCENDING = 2  # Highest values first
 
 
 @dataclass
@@ -90,10 +98,10 @@ def get_pod_priority(pod: V1Pod) -> int:
     return pod.spec.priority if pod.spec and hasattr(pod.spec, "priority") else 0
 
 
-def get_pod_sort_key(pod: V1Pod, reverse: bool = True) -> tuple[int, str]:
+def get_pod_sort_key(pod: V1Pod, order: SortOrder = SortOrder.DESCENDING) -> tuple[int, str]:
     """Get the sort key for a pod based on priority and name."""
     priority = get_pod_priority(pod)
-    return (-priority if reverse else priority, pod.metadata.name)
+    return (-priority if order == SortOrder.DESCENDING else priority, pod.metadata.name)
 
 
 def get_pods_to_preempt(
@@ -110,15 +118,16 @@ def get_pods_to_preempt(
         num_available_nodes: Number of nodes available for scheduling
 
     Returns:
-        List of running pods that should be preempted
+        List of running pods that should be preempted, sorted by priority (lowest first)
     """
     if len(pending_pods) <= num_available_nodes:
         return []
 
-    # TODO(snakescott): cleanup, try to avoid using get_pod_sort_key and get_pod_priority
-    # by converting to simpler data structures that can be sorted and used directly.
-    sorted_pending = SortedList(pending_pods, key=lambda p: get_pod_sort_key(p))
-    sorted_running = SortedList(running_pods, key=lambda p: get_pod_sort_key(p))
+    # Create sorted lists of pods
+    # Pending pods sorted by priority (highest first)
+    sorted_pending = SortedList(pending_pods, key=lambda p: get_pod_sort_key(p, SortOrder.DESCENDING))
+    # Running pods sorted by priority (lowest first)
+    sorted_running = SortedList(running_pods, key=lambda p: get_pod_sort_key(p, SortOrder.ASCENDING))
 
     # Pop the highest priority pending pods that can be scheduled on available nodes
     for _ in range(num_available_nodes):
@@ -132,15 +141,15 @@ def get_pods_to_preempt(
         pending_pod = sorted_pending[0]
         pending_priority = get_pod_priority(pending_pod)
 
-        # Find the highest priority running pod
+        # Find the lowest priority running pod
         if not sorted_running:
             break
-        highest_running = sorted_running[0]
-        running_priority = get_pod_priority(highest_running)
+        lowest_running = sorted_running[0]
+        running_priority = get_pod_priority(lowest_running)
 
         # If pending pod has strictly higher priority, mark the running pod for preemption
         if pending_priority > running_priority:
-            pods_to_preempt.append(highest_running)
+            pods_to_preempt.append(lowest_running)
             sorted_running.pop(0)
             sorted_pending.pop(0)
         else:

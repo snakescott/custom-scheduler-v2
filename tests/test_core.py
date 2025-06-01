@@ -210,15 +210,15 @@ def test_get_pods_to_preempt_with_preemption():
         create_test_pod("medium", priority=10),
     ]
     running_pods = [
-        create_test_pod("low-1", priority=5, node_name="node-1", phase="Running"),
-        create_test_pod("low-2", priority=1, node_name="node-2", phase="Running"),
+        create_test_pod("low-5", priority=5, node_name="node-1", phase="Running"),
+        create_test_pod("low-1", priority=1, node_name="node-2", phase="Running"),
     ]
 
     # With only 1 available node, need to preempt
     pods_to_preempt = get_pods_to_preempt(pending_pods, running_pods, num_available_nodes=1)
     assert len(pods_to_preempt) == 2
     assert pods_to_preempt[0].metadata.name == "low-1"  # Should preempt the lowest priority running pod
-    assert pods_to_preempt[1].metadata.name == "low-2"  # Should preempt the lowest priority running pod
+    assert pods_to_preempt[1].metadata.name == "low-5"  # Should preempt the lowest priority running pod
 
 
 @pytest.mark.unit
@@ -303,3 +303,39 @@ def test_schedule_with_preemption_no_effect(fixed_time: datetime):
     # Verify only the medium priority pod is bound
     assert actions.bindings[0].metadata.name == "medium-priority"
     assert actions.bindings[0].target.name == "node-b"
+
+
+@pytest.mark.unit
+def test_schedule_preempt_lowest_priority(fixed_time: datetime):
+    """Test that when a high priority pod needs scheduling, the lowest priority running pod is evicted."""
+    # Create two nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+
+    # Create running pods with different priorities
+    low_priority_running = create_test_pod("low-priority", "test-scheduler", "node-a", "Running", priority=5)
+    medium_priority_running = create_test_pod("medium-priority", "test-scheduler", "node-b", "Running", priority=10)
+
+    # Create a high priority pending pod that needs scheduling
+    high_priority_pending = create_test_pod("high-priority", "test-scheduler", priority=20)
+
+    state = NodePodState(
+        nodes=[node_a, node_b],
+        pods=[low_priority_running, medium_priority_running, high_priority_pending],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=True)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 1
+    assert len(actions.bindings) == 1
+
+    # Verify the low priority pod is evicted (not the medium priority one)
+    assert actions.evictions[0].metadata.name == "low-priority"
+    assert actions.evictions[0].metadata.namespace == "test-namespace"
+
+    # Verify the high priority pod is bound to the node that had the low priority pod
+    assert actions.bindings[0].metadata.name == "high-priority"
+    assert actions.bindings[0].target.name == "node-a"
