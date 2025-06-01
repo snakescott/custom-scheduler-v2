@@ -5,18 +5,18 @@ WORKDIR /app
 # Set Python to run unbuffered
 ENV PYTHONUNBUFFERED=1
 
-# Copy project files
+# Copy only pyproject.toml for installation
 COPY pyproject.toml .
 
 # Create and activate virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies in virtual environment
+# Install the package
 RUN pip install --no-cache-dir .
 
-# Copy source last to get better caching perf
-COPY src/ src/
+# Copy source code after installation for better caching
+COPY src/ .
 
 # Set the entrypoint
-ENTRYPOINT ["python", "-m", "src.custom_scheduler.driver"]
+ENTRYPOINT ["python", "-m", "custom_scheduler.driver"]
