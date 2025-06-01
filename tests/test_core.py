@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from kubernetes.client import V1Node, V1NodeSpec, V1Pod, V1PodSpec, V1PodStatus
+from kubernetes.client import V1Node, V1NodeSpec, V1ObjectMeta, V1Pod, V1PodSpec, V1PodStatus
 
 from custom_scheduler.core import NodePodState, SchedulingActions, schedule
 
@@ -21,14 +21,19 @@ def create_test_pod(
     node_name: str | None = None,
     phase: str = "Pending",
     priority: int = 0,
+    group_name: str | None = None,
 ) -> V1Pod:
     """Create a test pod with the given properties."""
     pod = Mock(spec=V1Pod)
+    pod.metadata = Mock(spec=V1ObjectMeta)
     pod.metadata.name = name
+    pod.metadata.annotations = {"custom-scheduling.k8s.io/group-name": group_name} if group_name else {}
+
     pod.spec = Mock(spec=V1PodSpec)
     pod.spec.scheduler_name = scheduler_name
     pod.spec.node_name = node_name
     pod.spec.priority = priority
+
     pod.status = Mock(spec=V1PodStatus)
     pod.status.phase = phase
     return pod
@@ -282,3 +287,119 @@ def test_schedule_preempt_lowest_priority(fixed_time: datetime):
     # Verify the high priority pod is bound to the node that had the low priority pod
     assert actions.bindings[0].metadata.name == "high-priority"
     assert actions.bindings[0].target.name == "node-a"
+
+
+@pytest.mark.unit
+def test_schedule_pod_groups(fixed_time: datetime):
+    """Test schedule function with pod groups."""
+    # Create nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+    node_c = create_test_node("node-c")
+
+    # Create pods in different groups
+    group1_pod1 = create_test_pod("group1-pod1", "test-scheduler", group_name="group1", priority=10)
+    group1_pod2 = create_test_pod("group1-pod2", "test-scheduler", group_name="group1", priority=10)
+    group2_pod1 = create_test_pod("group2-pod1", "test-scheduler", group_name="group2")
+    single_pod = create_test_pod("single-pod", "test-scheduler", priority=5)  # No group name
+
+    state = NodePodState(
+        nodes=[node_a, node_b, node_c],
+        pods=[group1_pod1, group1_pod2, group2_pod1, single_pod],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=False)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 0
+    assert len(actions.bindings) == 3  # All pods should be scheduled
+
+    # Verify group1 pods are scheduled together
+    group1_bindings = [b for b in actions.bindings if b.metadata.name.startswith("group1-")]
+    assert len(group1_bindings) == 2
+    assert {b.target.name for b in group1_bindings} == {"node-a", "node-b"}  # Should be on different nodes
+
+    # Verify single pod is scheduled
+    single_binding = next(b for b in actions.bindings if b.metadata.name == "single-pod")
+    assert single_binding.target.name == "node-c"
+
+
+@pytest.mark.unit
+def test_schedule_pod_groups_mixed_priorities(fixed_time: datetime):
+    """Test schedule function with pod groups containing pods of different priorities."""
+    # Create nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+    node_c = create_test_node("node-c")
+
+    # Create a group with mixed priorities
+    high_priority_pod = create_test_pod("high-priority", "test-scheduler", priority=20, group_name="mixed-group")
+    low_priority_pod = create_test_pod("low-priority", "test-scheduler", priority=5, group_name="mixed-group")
+    medium_priority_pod = create_test_pod("medium-priority", "test-scheduler", priority=10, group_name="mixed-group")
+
+    # Create some running pods
+    running_pod1 = create_test_pod("running1", "test-scheduler", "node-a", "Running", priority=15)
+    running_pod2 = create_test_pod("running2", "test-scheduler", "node-b", "Running", priority=8)
+
+    state = NodePodState(
+        nodes=[node_a, node_b, node_c],
+        pods=[high_priority_pod, low_priority_pod, medium_priority_pod, running_pod1, running_pod2],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=True)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 2  # Both running pods should be evicted
+    assert len(actions.bindings) == 3  # All group pods should be scheduled
+
+    # Verify all group pods are scheduled (group max priority is 20)
+    group_bindings = [
+        b for b in actions.bindings if b.metadata.name in ["high-priority", "low-priority", "medium-priority"]
+    ]
+    assert len(group_bindings) == 3
+    assert {b.target.name for b in group_bindings} == {"node-a", "node-b", "node-c"}
+
+    # Verify running pods are evicted
+    evicted_names = {e.metadata.name for e in actions.evictions}
+    assert evicted_names == {"running1", "running2"}
+
+
+@pytest.mark.unit
+def test_schedule_pod_groups_insufficient_nodes(fixed_time: datetime):
+    """Test schedule function when there aren't enough nodes for a pod group."""
+    # Create only two nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+
+    # Create a group of three pods
+    group_pod1 = create_test_pod("group-pod1", "test-scheduler", group_name="large-group")
+    group_pod2 = create_test_pod("group-pod2", "test-scheduler", group_name="large-group")
+    group_pod3 = create_test_pod("group-pod3", "test-scheduler", group_name="large-group")
+
+    # Create a single pod that should be scheduled
+    single_pod = create_test_pod("single-pod", "test-scheduler")
+
+    state = NodePodState(
+        nodes=[node_a, node_b],
+        pods=[group_pod1, group_pod2, group_pod3, single_pod],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=False)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 0
+    assert len(actions.bindings) == 1  # Only the single pod should be scheduled
+
+    # Verify the single pod is scheduled
+    assert actions.bindings[0].metadata.name == "single-pod"
+    assert actions.bindings[0].target.name in {"node-a", "node-b"}
+
+    # Verify no group pods are scheduled
+    group_bindings = [b for b in actions.bindings if b.metadata.name.startswith("group-pod")]
+    assert len(group_bindings) == 0
