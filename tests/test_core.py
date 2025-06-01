@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from kubernetes.client import V1Node, V1NodeSpec, V1Pod, V1PodSpec, V1PodStatus
 
-from custom_scheduler.core import NodePodState, SchedulingActions, schedule
+from custom_scheduler.core import NodePodState, SchedulingActions, get_pods_to_preempt, schedule
 
 
 def create_test_node(name: str) -> V1Node:
@@ -20,6 +20,7 @@ def create_test_pod(
     scheduler_name: str | None = None,
     node_name: str | None = None,
     phase: str = "Pending",
+    priority: int = 0,
 ) -> V1Pod:
     """Create a test pod with the given properties."""
     pod = Mock(spec=V1Pod)
@@ -27,6 +28,7 @@ def create_test_pod(
     pod.spec = Mock(spec=V1PodSpec)
     pod.spec.scheduler_name = scheduler_name
     pod.spec.node_name = node_name
+    pod.spec.priority = priority
     pod.status = Mock(spec=V1PodStatus)
     pod.status.phase = phase
     return pod
@@ -69,7 +71,7 @@ def test_node_pod_state_initialization(mock_node: V1Node, mock_pod: V1Pod, fixed
 def test_schedule_empty_state(fixed_time: datetime):
     """Test schedule function with empty state."""
     state = NodePodState(nodes=[], pods=[], namespace="test-namespace", ts=fixed_time)
-    actions = schedule("test-scheduler", state)
+    actions = schedule("test-scheduler", state, preempt=False)
 
     assert isinstance(actions, SchedulingActions)
     assert len(actions.evictions) == 0
@@ -100,7 +102,7 @@ def test_schedule_mixed_pods(
         ts=fixed_time,
     )
 
-    actions = schedule("test-scheduler", state)
+    actions = schedule("test-scheduler", state, preempt=False)
 
     assert isinstance(actions, SchedulingActions)
     assert len(actions.evictions) == 0
@@ -136,7 +138,7 @@ def test_schedule_all_nodes_occupied(
         ts=fixed_time,
     )
 
-    actions = schedule("test-scheduler", state)
+    actions = schedule("test-scheduler", state, preempt=False)
 
     assert isinstance(actions, SchedulingActions)
     assert len(actions.evictions) == 0
@@ -165,7 +167,7 @@ def test_schedule_lexicographical_ordering(
         ts=fixed_time,
     )
 
-    actions = schedule("test-scheduler", state)
+    actions = schedule("test-scheduler", state, preempt=False)
 
     assert isinstance(actions, SchedulingActions)
     assert len(actions.evictions) == 0
@@ -178,3 +180,126 @@ def test_schedule_lexicographical_ordering(
     assert actions.bindings[1].target.name == "node-m"
     assert actions.bindings[2].metadata.name == "pod-z"
     assert actions.bindings[2].target.name == "node-z"
+
+
+@pytest.mark.unit
+def test_get_pods_to_preempt_no_preemption_needed():
+    """Test get_pods_to_preempt when no preemption is needed."""
+    # Create pods with different priorities
+    pending_pods = [
+        create_test_pod("high-priority", priority=10),
+        create_test_pod("low-priority", priority=5),
+    ]
+    running_pods = [
+        create_test_pod("running-1", priority=1, node_name="node-1", phase="Running"),
+        create_test_pod("running-2", priority=2, node_name="node-2", phase="Running"),
+    ]
+
+    # With 2 available nodes, no preemption needed
+    pods_to_preempt = get_pods_to_preempt(pending_pods, running_pods, num_available_nodes=2)
+    assert len(pods_to_preempt) == 0
+
+
+@pytest.mark.unit
+def test_get_pods_to_preempt_with_preemption():
+    """Test get_pods_to_preempt when preemption is needed."""
+    # Create pods with different priorities
+    pending_pods = [
+        create_test_pod("very-high", priority=20),
+        create_test_pod("high", priority=15),
+        create_test_pod("medium", priority=10),
+    ]
+    running_pods = [
+        create_test_pod("low-1", priority=5, node_name="node-1", phase="Running"),
+        create_test_pod("low-2", priority=1, node_name="node-2", phase="Running"),
+    ]
+
+    # With only 1 available node, need to preempt
+    pods_to_preempt = get_pods_to_preempt(pending_pods, running_pods, num_available_nodes=1)
+    assert len(pods_to_preempt) == 2
+    assert pods_to_preempt[0].metadata.name == "low-1"  # Should preempt the lowest priority running pod
+    assert pods_to_preempt[1].metadata.name == "low-2"  # Should preempt the lowest priority running pod
+
+
+@pytest.mark.unit
+def test_get_pods_to_preempt_no_preemption_possible():
+    """Test get_pods_to_preempt when preemption is needed but not possible."""
+    # Create pods with different priorities
+    pending_pods = [
+        create_test_pod("medium-1", priority=10),
+        create_test_pod("medium-2", priority=10),
+    ]
+    running_pods = [
+        create_test_pod("high-1", priority=20, node_name="node-1", phase="Running"),
+        create_test_pod("high-2", priority=15, node_name="node-2", phase="Running"),
+    ]
+
+    # With no available nodes, but can't preempt because running pods have higher priority
+    pods_to_preempt = get_pods_to_preempt(pending_pods, running_pods, num_available_nodes=0)
+    assert len(pods_to_preempt) == 0
+
+
+@pytest.mark.unit
+def test_schedule_with_preemption(fixed_time: datetime):
+    """Test schedule function with preemption enabled."""
+    # Create nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+
+    # Create pods with different priorities
+    high_priority_pending = create_test_pod("high-priority", "test-scheduler", priority=20)
+    low_priority_running = create_test_pod("low-priority", "test-scheduler", "node-a", "Running", priority=5)
+    medium_priority_pending = create_test_pod("medium-priority", "test-scheduler", priority=10)
+
+    state = NodePodState(
+        nodes=[node_a, node_b],
+        pods=[high_priority_pending, low_priority_running, medium_priority_pending],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=True)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 1
+    assert len(actions.bindings) == 2
+
+    # Verify the low priority pod is evicted
+    assert actions.evictions[0].metadata.name == "low-priority"
+    assert actions.evictions[0].metadata.namespace == "test-namespace"
+
+    # Verify both pending pods are bound
+    assert actions.bindings[0].metadata.name == "high-priority"
+    assert actions.bindings[0].target.name == "node-a"  # Gets the node from the evicted pod
+    assert actions.bindings[1].metadata.name == "medium-priority"
+    assert actions.bindings[1].target.name == "node-b"
+
+
+@pytest.mark.unit
+def test_schedule_with_preemption_no_effect(fixed_time: datetime):
+    """Test schedule function with preemption enabled but no preemption possible."""
+    # Create nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+
+    # Create pods with different priorities
+    low_priority_pending = create_test_pod("low-priority", "test-scheduler", priority=5)
+    high_priority_running = create_test_pod("high-priority", "test-scheduler", "node-a", "Running", priority=20)
+    medium_priority_pending = create_test_pod("medium-priority", "test-scheduler", priority=10)
+
+    state = NodePodState(
+        nodes=[node_a, node_b],
+        pods=[low_priority_pending, high_priority_running, medium_priority_pending],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=True)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 0  # No evictions because running pod has higher priority
+    assert len(actions.bindings) == 1  # Only one binding because one node is occupied
+
+    # Verify only the medium priority pod is bound
+    assert actions.bindings[0].metadata.name == "medium-priority"
+    assert actions.bindings[0].target.name == "node-b"
