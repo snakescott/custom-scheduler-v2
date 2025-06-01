@@ -1,5 +1,14 @@
 This is a limited, toy kubernetes scheduler. It is basically a rebuild of https://github.com/snakescott/takehome-k8s with substantially more intention behind its design and implementation. This document is a development log.
 
+**20250531 19:30-21:30 Pacific**
+
+About 90m of dev time during this block. Full impl and test of basic scheduling and impl but not yet minikube testing of preemption. Found a few interesting bugs that were likely in the takehome-k8s version as well:
+
+* Didn't correct check `schedulerName` matching -- and while test case covered this it was shadowed by lexographic ordering nuances. [d732e1b7ed8ad1baa4f33ce4e2d622436dac4f7d](https://github.com/snakescott/custom-scheduler-v2/commit/d732e1b7ed8ad1baa4f33ce4e2d622436dac4f7d)
+* Longstanding bug in python kubernetes library that caused crash after binding due to incorrect reponse deserialization. Fixed in [8d474e3187a9a8953c44dce0c12925d03caf14f2](https://github.com/snakescott/custom-scheduler-v2/commit/8d474e3187a9a8953c44dce0c12925d03caf14f2).
+
+I do miss having PRs (vs just commits) to refer back to, maybe I will enable branch protection...
+
 **20250531 15:15-16:00 Pacific**
 
 Cleanup, docs, and filing issues.
