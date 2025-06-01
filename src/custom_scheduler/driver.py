@@ -17,7 +17,7 @@ def main():
 
     config.load_incluster_config()
     api = client.CoreV1Api()
-
+    print("\n{scheduler_name} launching in {namespace}...")
     try:
         # We need some way to drive the scheduling loop. One approach is
         # to drive it from a watch, e.g. w.stream(v1.list_namespaced_pod, namespace),
@@ -32,7 +32,7 @@ def main():
             # https://github.com/snakescott/custom-scheduler-v2/issues/1
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nShutting down...", flush=True)
+        print(f"\n{scheduler_name} shutting down in {namespace}...")
         sys.exit(0)
 
 
