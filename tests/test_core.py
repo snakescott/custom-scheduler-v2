@@ -88,8 +88,8 @@ def test_schedule_mixed_pods(
 
     # Create pods with different scheduler names and states
     pod1 = create_test_pod("pod1", "test-scheduler")  # Should be scheduled
-    pod2 = create_test_pod("pod2", "test-scheduler")  # Should be scheduled
-    pod3 = create_test_pod("pod3", "other-scheduler")  # Should not be scheduled
+    pod2 = create_test_pod("pod2", "other-scheduler")  # Should not be scheduled
+    pod3 = create_test_pod("pod3", "test-scheduler")  # Should be scheduled
     pod4 = create_test_pod("pod4", None)  # Should not be scheduled
     pod5 = create_test_pod("pod5", "test-scheduler", "node-a", "Running")  # Already running
 
@@ -111,7 +111,7 @@ def test_schedule_mixed_pods(
     assert binding.target.name == "node-b"
 
     binding = actions.bindings[1]
-    assert binding.metadata.name == "pod2"
+    assert binding.metadata.name == "pod3"
     assert binding.target.name == "node-c"
 
 

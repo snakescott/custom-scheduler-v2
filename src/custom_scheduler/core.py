@@ -102,7 +102,11 @@ def schedule(scheduler_name: str, state: NodePodState) -> SchedulingActions:
     """
 
     # Find pending pods that need scheduling
-    pending_pods = [pod for pod in state.pods if pod.status and pod.status.phase == "Pending"]
+    pending_pods = [
+        pod
+        for pod in state.pods
+        if pod.status and pod.status.phase == "Pending" and pod.spec.scheduler_name == scheduler_name
+    ]
 
     # Find nodes that already have pods with this scheduler running
     nodes_with_scheduler_pods = {
