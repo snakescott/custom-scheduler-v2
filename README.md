@@ -8,10 +8,15 @@ After installing `custom-scheduler` into a namespace, set `schedulerName: custom
 `custom-scheduler`
 * Attempts to schedule the world once every five seconds
 * Will preempt and evict pods if a higher priority (per `priorityClassName`) pod is Pending and there are no nodes available.
-* Supports gang scheduling when `custom-scheduling.k8s.io/group-name` and/or `custom-scheduling.k8s.io/min-available` are set. The semantics here are that it will not schedule pending pods with a `group-name` set unless `min-available` or more (including currently running pods) can be running by the end of the scheduling pass. Because it expects these annotations on pods (vs a one-per group object like a job, see e.g. Volcano): it computes the priority of the group as the max priority of any pod in the group (including running and pending pods), and min-available as the max min-available of any pending pod.
+* Supports gang scheduling when `custom-scheduling.k8s.io/group-name` and/or `custom-scheduling.k8s.io/min-available` are set.
+
+`custom-scheduler`'s gang scheduling semantics are:
+1. it will not schedule pending pods with a `group-name` set unless `min-available` or more (including currently running pods) can be running by the end of the scheduling pass.
+2. it computes the priority of the group as the max priority of any pod in the group (including running and pending pods)
+3. it computes min-available as the max min-available of any pending pod in the group.
 
 ### Installation
-1. If you want to install in a namespace besides `default`, manually update `kind.namespace` of the `ClusterRoleBinding` in `k8s/rbac.yaml` (tracked in [issues/18](https://github.com/snakescott/custom-scheduler-v2/issues/18
+1. If you want to install in a namespace besides `default`, manually update `kind.namespace` of the `ClusterRoleBinding` in `k8s/rbac.yaml` (tracked in [issues/18](https://github.com/snakescott/custom-scheduler-v2/issues/18))
 2. `kubectl apply -f k8s/rbac.yaml` (specify `--namespace` if not `default`)
 3. `kubectl apply -f k8s/scheduler.yaml` (specify `--namespace` if not `default`)
 
@@ -34,7 +39,7 @@ kubectl apply -f k8s/test/pod-lowpri.yaml
 kubectl apply -f k8s/test/job-two-highpri.yaml
 kubectl get all
 # you'll see that the lowpri job is preempted and the highpri job is gang scheduled
-
+```
 
 
 ## Development
