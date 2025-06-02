@@ -16,6 +16,8 @@ def is_pending(pod: V1Pod) -> bool:
     return pod.status and pod.status.phase == "Pending"
 
 
+# TODO(snakescott): revisit this abstraction
+# See https://github.com/snakescott/custom-scheduler-v2/issues/21
 def is_running(pod: V1Pod) -> bool:
     return pod.status and pod.status.phase == "Running" and pod.spec and pod.spec.node_name is not None
 
