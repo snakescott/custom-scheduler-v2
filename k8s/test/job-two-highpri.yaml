@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-two-highpri
+spec:
+  parallelism: 2
+  template:
+    metadata:
+      name: job-two-highpri
+      annotations:
+        custom-scheduling.k8s.io/group-name: "job-two-highpri"
+        custom-scheduling.k8s.io/min-available: "2"
+    spec:
+      schedulerName: custom-scheduler
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.9
+      priorityClassName: high-priority
+      restartPolicy: Never

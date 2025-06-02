@@ -1,4 +1,40 @@
-
+# Service account,and RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: custom-scheduler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: custom-scheduler-role
+rules:
+# Note: these grants have not been rigorously vetted. This is only appropriate to run on a test cluster!
+# TODO(snakescott): can these be narrowed?
+# https://github.com/snakescott/custom-scheduler-v2/issues/5
+- apiGroups: [""] # Core API group
+  resources: ["pods/binding"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "update"] # 'update' might be needed if scheduler modifies pod (e.g. annotations)
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: custom-scheduler-binding
+subjects:
+- kind: ServiceAccount
+  name: custom-scheduler
+roleRef:
+  kind: Role
+  name: custom-scheduler-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Deployment for scheduler
 apiVersion: apps/v1
 kind: Deployment
 metadata:
