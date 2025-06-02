@@ -3,7 +3,39 @@
 A toy kubernetes scheduler. You may be interested in [devlog.md](devlog.md)
 
 ## Functionality, installation, and usage
-TBD https://github.com/snakescott/custom-scheduler-v2/issues/8
+After installing `custom-scheduler` into a namespace, set `schedulerName: custom-scheduler` to use the scheduler. It allows at most one pod per node to be scheduled and that is the only restriction -- it ignores resources, taints, tolerations, etc.
+
+`custom-scheduler`
+* Attempts to schedule the world once every five seconds
+* Will preempt and evict pods if a higher priority (per `priorityClassName`) pod is Pending and there are no nodes available.
+* Supports gang scheduling when `custom-scheduling.k8s.io/group-name` and/or `custom-scheduling.k8s.io/min-available` are set. The semantics here are that it will not schedule pending pods with a `group-name` set unless `min-available` or more (including currently running pods) can be running by the end of the scheduling pass. Because it expects these annotations on pods (vs a one-per group object like a job, see e.g. Volcano): it computes the priority of the group as the max priority of any pod in the group (including running and pending pods), and min-available as the max min-available of any pending pod.
+
+### Installation
+1. If you want to install in a namespace besides `default`, manually update `kind.namespace` of the `ClusterRoleBinding` in `k8s/rbac.yaml` (tracked in [issues/18](https://github.com/snakescott/custom-scheduler-v2/issues/18
+2. `kubectl apply -f k8s/rbac.yaml` (specify `--namespace` if not `default`)
+3. `kubectl apply -f k8s/scheduler.yaml` (specify `--namespace` if not `default`)
+
+### Simple demo
+```
+# 1. Set up a two node k8s cluster, e.g. using minikube)
+# 2. Follow the installation instructions above
+# 3. set up priorities used by demo resources
+kubectl apply -f k8s/test/scaffolding.yaml
+
+# 4. Demo one
+kubectl apply -f k8s/test/pod-highpri.yaml
+kubectl apply -f k8s/test/job-two-lowpri.yaml
+kubectl get all
+# you'll see that the lowpri job couldn't start because it is gang scheduled and there is no space
+
+# 5. Demo two
+# delete all the resources from demo one if you tried it
+kubectl apply -f k8s/test/pod-lowpri.yaml
+kubectl apply -f k8s/test/job-two-highpri.yaml
+kubectl get all
+# you'll see that the lowpri job is preempted and the highpri job is gang scheduled
+
+
 
 ## Development
 **WIP**, the below has a lot of AI-generated text that has not been carefully scrutinized (https://github.com/snakescott/custom-scheduler-v2/issues/7 covers reviewing).
