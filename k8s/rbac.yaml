@@ -29,7 +29,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: custom-scheduler
-  namespace: default # Note: you will need to change this manually if you want to run in another cluster
+  namespace: default # Note: you will need to change this manually if you want to run in another namespace
 roleRef:
   kind: ClusterRole
   name: custom-scheduler-clusterrole
