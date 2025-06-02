@@ -403,3 +403,42 @@ def test_schedule_pod_groups_insufficient_nodes(fixed_time: datetime):
     # Verify no group pods are scheduled
     group_bindings = [b for b in actions.bindings if b.metadata.name.startswith("group-pod")]
     assert len(group_bindings) == 0
+
+
+@pytest.mark.unit
+def test_schedule_pod_groups_preempt_mixed_running(fixed_time: datetime):
+    """Test schedule function with a group preempting both grouped and ungrouped running pods."""
+    # Create three nodes
+    node_a = create_test_node("node-a")
+    node_b = create_test_node("node-b")
+    node_c = create_test_node("node-c")
+
+    # Create running pods - one ungrouped, one in group foo
+    running_ungrouped = create_test_pod("running-ungrouped", "test-scheduler", "node-a", "Running", priority=10)
+    running_grouped = create_test_pod(
+        "running-grouped", "test-scheduler", "node-b", "Running", priority=5, group_name="foo"
+    )
+
+    # Create pending pods in group foo with higher priority
+    pending_group1 = create_test_pod("pending-group1", "test-scheduler", priority=20, group_name="foo")
+    pending_group2 = create_test_pod("pending-group2", "test-scheduler", priority=20, group_name="foo")
+
+    state = NodePodState(
+        nodes=[node_a, node_b, node_c],
+        pods=[running_ungrouped, running_grouped, pending_group1, pending_group2],
+        namespace="test-namespace",
+        ts=fixed_time,
+    )
+
+    actions = schedule("test-scheduler", state, preempt=True)
+
+    assert isinstance(actions, SchedulingActions)
+    assert len(actions.evictions) == 1  # Both running pods should be evicted
+    assert len(actions.bindings) == 2  # Both pending group pods should be scheduled
+
+    assert actions.evictions[0].metadata.name == "running-ungrouped"
+
+    # Verify both pending group pods are scheduled
+    group_bindings = [b for b in actions.bindings if b.metadata.name.startswith("pending-group")]
+    assert len(group_bindings) == 2
+    assert {b.target.name for b in group_bindings} == {"node-a", "node-c"}  # Should take over the evicted pods' nodes
