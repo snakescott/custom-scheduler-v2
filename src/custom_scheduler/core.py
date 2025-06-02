@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import chain
 
 from kubernetes.client import (
     V1Binding,
@@ -10,10 +11,10 @@ from kubernetes.client import (
 
 from .core_k8s import (
     AVAILABLE_NODE_PRIORITY,
-    GROUP_NAME_ANNOTATION,
     create_binding,
     create_eviction,
-    get_annotation,
+    get_group_name,
+    get_min_available,
     get_pod_priority,
     is_pending,
     is_running,
@@ -45,14 +46,19 @@ class PodGroup:
     """Represents a group of pods that should be scheduled together."""
 
     group_name: str  # For single pods, this is the pod name
-    pods: list[V1Pod]  # All pods in the group
+    running_pods: list[V1Pod]  # All pods in the group
     pending_pods: list[V1Pod]  # Only pending pods in the group
     max_priority: int  # Maximum priority of any pod in the group
+    min_available: int
 
     @property
     def num_pending(self) -> int:
         """Number of pending pods in the group."""
         return len(self.pending_pods)
+
+    @property
+    def pods(self) -> list[V1Pod]:
+        return chain(self.running_pods, self.pending_pods)
 
 
 def get_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
@@ -65,26 +71,29 @@ def get_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
 
     # First pass: collect pods into their groups
     for pod in all_pods:
-        group_name = get_annotation(pod, GROUP_NAME_ANNOTATION)
+        group_name = get_group_name(pod)
         if not group_name:
             # Single pod group - use pod name as group name
             group_name = pod.metadata.name
 
         if group_name not in groups:
             groups[group_name] = ([], [])
-        groups[group_name][0].append(pod)  # Add to all pods
+        # Add to all pods
         if is_pending(pod):
-            groups[group_name][1].append(pod)  # Add to pending pods
+            groups[group_name][1].append(pod)
+        elif is_running(pod):
+            groups[group_name][0].append(pod)
 
     # Convert to PodGroup objects with max priority from all pods
     pod_groups = [
         PodGroup(
             group_name=group_name,
-            pods=all_group_pods,
+            running_pods=running_group_pods,
             pending_pods=pending_group_pods,
-            max_priority=max(get_pod_priority(pod) for pod in all_group_pods),
+            max_priority=max(get_pod_priority(pod) for pod in chain(running_group_pods, pending_group_pods)),
+            min_available=max(get_min_available(pod) for pod in pending_group_pods) if pending_group_pods else 1,
         )
-        for group_name, (all_group_pods, pending_group_pods) in groups.items()
+        for group_name, (running_group_pods, pending_group_pods) in groups.items()
     ]
 
     # Sort by sort key
@@ -129,27 +138,45 @@ def schedule(scheduler_name: str, state: NodePodState, preempt: bool = True) -> 
 
     # Process each pod group in order
     for group in pod_groups:
-        # First check if we have enough nodes for the entire group
-        if next_node_index + len(group.pending_pods) > len(sorted_nodes):
-            continue  # Skip this group if we don't have enough nodes
+        num_running = len(group.running_pods)
+        min_available = group.min_available
+        num_pending = len(group.pending_pods)
 
-        # Check if the last node needed for this group can be used
-        last_node_index = next_node_index + len(group.pending_pods) - 1
-        last_node = sorted_nodes[last_node_index]
-        if not (last_node.priority == AVAILABLE_NODE_PRIORITY or (preempt and group.max_priority > last_node.priority)):
-            continue  # Skip this group if we can't use the last node
+        # Calculate how many more pods need to be scheduled to meet minAvailable
+        min_to_schedule = max(0, min_available - num_running)
 
-        # Schedule all pending pods in the group
-        for pod in group.pending_pods:
-            pn = sorted_nodes[next_node_index]
+        # If we can't schedule at least min_to_schedule pods, skip this group
+        if min_to_schedule > 0 and next_node_index + min_to_schedule > len(sorted_nodes):
+            continue
+
+        # Check if we can use the last node needed for min_to_schedule pods
+        if min_to_schedule > 0:
+            last_node_index = next_node_index + min_to_schedule - 1
+            last_node = sorted_nodes[last_node_index]
+            if not (
+                last_node.priority == AVAILABLE_NODE_PRIORITY or (preempt and group.max_priority > last_node.priority)
+            ):
+                continue  # Skip this group if we can't meet minAvailable
+
+        # Try to schedule as many pending pods as possible
+        pods_scheduled = 0
+        for i in range(min(num_pending, len(sorted_nodes) - next_node_index)):
+            pn = sorted_nodes[next_node_index + i]
             priority, node = pn.priority, pn.node
 
-            bindings.append(create_binding(pod.metadata.name, node.metadata.name))
+            # Check if we can use this node
+            if not (priority == AVAILABLE_NODE_PRIORITY or (preempt and group.max_priority > priority)):
+                break
+
+            bindings.append(create_binding(group.pending_pods[i].metadata.name, node.metadata.name))
             if preempt and priority != AVAILABLE_NODE_PRIORITY:
                 victim_pod = node_to_running_pod.get(node.metadata.name)
                 if victim_pod:
                     evictions.append(create_eviction(state.namespace, victim_pod.metadata.name))
-            next_node_index += 1
+            pods_scheduled += 1
+
+        # Update next_node_index based on how many pods we actually scheduled
+        next_node_index += pods_scheduled
 
     return SchedulingActions(
         evictions=evictions,

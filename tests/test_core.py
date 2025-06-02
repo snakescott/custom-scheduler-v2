@@ -22,12 +22,20 @@ def create_test_pod(
     phase: str = "Pending",
     priority: int = 0,
     group_name: str | None = None,
+    min_available: int | None = None,
 ) -> V1Pod:
     """Create a test pod with the given properties."""
     pod = Mock(spec=V1Pod)
     pod.metadata = Mock(spec=V1ObjectMeta)
     pod.metadata.name = name
-    pod.metadata.annotations = {"custom-scheduling.k8s.io/group-name": group_name} if group_name else {}
+
+    # Initialize annotations dict
+    annotations = {}
+    if group_name:
+        annotations["custom-scheduling.k8s.io/group-name"] = group_name
+    if min_available is not None:
+        annotations["custom-scheduling.k8s.io/min-available"] = str(min_available)
+    pod.metadata.annotations = annotations if annotations else {}
 
     pod.spec = Mock(spec=V1PodSpec)
     pod.spec.scheduler_name = scheduler_name
@@ -376,9 +384,9 @@ def test_schedule_pod_groups_insufficient_nodes(fixed_time: datetime):
     node_b = create_test_node("node-b")
 
     # Create a group of three pods
-    group_pod1 = create_test_pod("group-pod1", "test-scheduler", group_name="large-group")
-    group_pod2 = create_test_pod("group-pod2", "test-scheduler", group_name="large-group")
-    group_pod3 = create_test_pod("group-pod3", "test-scheduler", group_name="large-group")
+    group_pod1 = create_test_pod("group-pod1", "test-scheduler", group_name="large-group", min_available=3)
+    group_pod2 = create_test_pod("group-pod2", "test-scheduler", group_name="large-group", min_available=3)
+    group_pod3 = create_test_pod("group-pod3", "test-scheduler", group_name="large-group", min_available=3)
 
     # Create a single pod that should be scheduled
     single_pod = create_test_pod("single-pod", "test-scheduler")
