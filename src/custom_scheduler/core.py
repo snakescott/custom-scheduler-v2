@@ -55,7 +55,7 @@ class PodGroup:
         return len(self.pending_pods)
 
 
-def get_pending_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
+def get_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
     """
     Group pods by their group name annotation.
     For pods without a group name, they are treated as single-pod groups.
@@ -77,7 +77,7 @@ def get_pending_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
             groups[group_name][1].append(pod)  # Add to pending pods
 
     # Convert to PodGroup objects with max priority from all pods
-    pending_pod_groups = [
+    pod_groups = [
         PodGroup(
             group_name=group_name,
             pods=all_group_pods,
@@ -88,7 +88,7 @@ def get_pending_pod_groups(all_pods: list[V1Pod]) -> list[PodGroup]:
     ]
 
     # Sort by sort key
-    return sorted(pending_pod_groups, key=lambda g: (-g.max_priority, -g.num_pending, g.group_name))
+    return sorted(pod_groups, key=lambda g: (-g.max_priority, -g.num_pending, g.group_name))
 
 
 def get_sorted_nodes(nodes: list[V1Node], pod_groups: list[PodGroup]) -> list[NodeAndPriority]:
@@ -120,15 +120,15 @@ def schedule(scheduler_name: str, state: NodePodState, preempt: bool = True) -> 
     # Get pods managed by this scheduler
     in_scope_pods = [pod for pod in state.pods if pod.spec and pod.spec.scheduler_name == scheduler_name]
     node_to_running_pod = {pod.spec.node_name: pod for pod in in_scope_pods if is_running(pod)}
-    pending_pod_groups = get_pending_pod_groups(in_scope_pods)
-    sorted_nodes = get_sorted_nodes(state.nodes, pending_pod_groups)
+    pod_groups = get_pod_groups(in_scope_pods)
+    sorted_nodes = get_sorted_nodes(state.nodes, pod_groups)
 
     bindings = []
     evictions = []
     next_node_index = 0
 
     # Process each pod group in order
-    for group in pending_pod_groups:
+    for group in pod_groups:
         # First check if we have enough nodes for the entire group
         if next_node_index + len(group.pending_pods) > len(sorted_nodes):
             continue  # Skip this group if we don't have enough nodes
