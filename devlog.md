@@ -2,7 +2,7 @@ This is a limited, toy kubernetes scheduler. It is basically a rebuild of https:
 
 **20250601 13:00-18:00 Pacific**
 
-Roughly three and a half hours of dev in this window (longer session). Code implementation of gang scheduling based on pod annotations (`custom-scheduling.k8s.io/group-name` and `custom-scheduling.k8s.io/min-available`). In order to close [issues/14](https://github.com/snakescott/custom-scheduler-v2/issues/14) what remains is:
+Roughly three and a half hours of dev in this window (longer session). Code implementation of gang scheduling based on pod annotations (`custom-scheduling.k8s.io/group-name` and `custom-scheduling.k8s.io/min-available`). Completely reworked the business logic from earlier implementation and built functionality that doesn't require anything beyond pods (e.g., no Volcano style jobs/tasks). In order to close [issues/14](https://github.com/snakescott/custom-scheduler-v2/issues/14) what remains is:
 
 * Real world testing on minikube
 * Potentially some cleanup and docs
